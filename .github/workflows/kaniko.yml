@@ -1,0 +1,46 @@
+name: Kaniko build and push docker image
+
+on:
+  workflow_call:
+    inputs:
+      destination:
+        required: true
+        type: string
+      dockerfile:
+        required: false
+        type: string
+        default: './Dockerfile'
+      build_args:
+        required: false
+        type: string
+        default: ' '
+      push:
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  package:
+    runs-on: [rts-dind]
+    container: gcr.io/kaniko-project/executor:v1.23.0-debug
+    permissions:
+      contents: read
+    steps:
+      - name: Build and push
+        run: |
+          if [ ${{ inputs.push }} = false ];then
+            push_image='--no-push'
+          else
+            push_image='--push-retry 3'
+          fi
+
+          echo "${push_image}"
+
+          /kaniko/executor --dockerfile=${{ inputs.dockerfile }} \
+          --context="${{ github.repositoryUrl }}#${{ github.ref }}#${{ github.sha }}" \
+          --destination=${{ inputs.destination }} \
+          ${push_image} \
+          ${{ inputs.build_args }}
+        env:
+          GIT_USERNAME: ${{ github.actor }}
+          GIT_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
