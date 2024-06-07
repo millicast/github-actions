@@ -3,9 +3,6 @@ name: Kaniko build and push docker image
 on:
   workflow_call:
     inputs:
-      destination:
-        required: true
-        type: string
       dockerfile:
         required: false
         type: string
@@ -18,15 +15,21 @@ on:
         required: false
         type: boolean
         default: false
+      ecr_repo_url:
+        required: true
+        type: string
+    secrets:
+      build_args_secrets:
+        required: false
 
 jobs:
-  package:
+  kaniko:
     runs-on: [rts-dind]
     container: gcr.io/kaniko-project/executor:v1.23.0-debug
     permissions:
       contents: read
     steps:
-      - name: Build and push
+      - name: "Build and push: ${{ inputs.push }}"
         run: |
           if [ ${{ inputs.push }} = false ];then
             push_image='--no-push'
@@ -34,13 +37,15 @@ jobs:
             push_image='--push-retry 3'
           fi
 
-          echo "${push_image}"
+          github_short_sha=$(echo ${{ github.sha }} | cut -c1-8)
+          build_args_all="${{ inputs.build_args}} ${{ secrets.build_args_secrets }}"
 
           /kaniko/executor --dockerfile=${{ inputs.dockerfile }} \
           --context="${{ github.repositoryUrl }}#${{ github.ref }}#${{ github.sha }}" \
-          --destination=${{ inputs.destination }} \
+          --destination=${{ inputs.ecr_repo_url }}:${github_short_sha} \
           ${push_image} \
-          ${{ inputs.build_args }}
+          ${build_args_all} \
+          && if [ ${{ inputs.push }} = true ];then echo "Docker image pushed to ${{ inputs.ecr_repo_url }}:${github_short_sha} :saluting_face:" >> $GITHUB_STEP_SUMMARY;fi
         env:
           GIT_USERNAME: ${{ github.actor }}
           GIT_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
