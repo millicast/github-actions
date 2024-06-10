@@ -1,0 +1,142 @@
+name: Update docker image url in the helm deployment repository
+
+on:
+  workflow_call:
+    inputs:
+      override_project:
+        required: false
+        type: string
+      environment:
+        required: true
+        type: string
+      millicast_tag:
+        required: true
+        type: string
+    secrets:
+      deployment_pat:
+        required: true
+      gitlab_user_name:
+        required: true
+      gitlab_user_email:
+        required: true
+jobs:
+  argo_update:
+    runs-on: [rts-dind]
+    container: alpine/git
+    steps:
+      - name: Update argo
+        run: |
+          apk add --update --no-cache yq
+          git config --global user.name ${GITLAB_USER_NAME}
+          git config --global user.email ${GITLAB_USER_EMAIL}
+
+          CI_PROJECT_NAME=$(basename ${{ github.repository }})
+          if [[ ! -z ${{ inputs.override_project }} ]]
+          then
+            PROJECT=${{ inputs.override_project }}
+          else
+            case ${CI_PROJECT_NAME} in
+              "developer-portal-api")
+                PROJECT="dpa"
+                ;;
+              "media-api-server")
+                PROJECT="mapi"
+                ;;
+              "auth-server")
+                PROJECT="auth-server"
+                ;;
+              "segment")
+                PROJECT="segment-consumer"
+                ;;
+              "keycloak")
+                PROJECT="keycloak"
+                TAG_PATH=".keycloakx.image.tag"
+                TAG="${TAG}-${ENVIRONMENT}"
+                ;;
+              "support-utils-keycloak-callback-service")
+                PROJECT="support-utils-keycloak-callback-service"
+                ;;
+              "Millicast-DashApi")
+                PROJECT="customer-api"
+                ;;
+              "Millicast.Director")
+                PROJECT="rts-director-api"
+                ;;
+              "webrtc-cdn-cdr-graphql-api")
+                PROJECT="rts-graphql"
+                ;;
+              "wwo-app-api")
+                PROJECT="wwo"
+                ;;
+              "rts-prom-target-generator")
+                PROJECT="rts-prometheus-target-generator"
+                ;;
+              "internal-stream-inspector-proxy")
+                PROJECT="internal-stream-inspector-proxy"
+                ;;
+              "dlb-streaming-recording-service")
+                PROJECT="dlb-streaming-recording-service"
+                ;;
+              "rts-analytics-extractor")
+                PROJECT="rts-analytics-extractor"
+                TAG_PATH=".jobImage.tag"
+                ;;
+              "rts-analytics-processor")
+                PROJECT="rts-analytics-processor"
+                TAG_PATH=".jobImage.tag"
+                ;;
+              "rts-bandwidth-accumulator")
+                PROJECT="rts-bandwidth-accumulator"
+                TAG_PATH=".jobImage.tag"
+                ;;
+              "rts-daily-reports")
+                PROJECT="rts-daily-reports"
+                TAG_PATH=".jobImage.tag"
+                ;;
+              "rts-storage-accumulator")
+                PROJECT="rts-storage-accumulator"
+                TAG_PATH=".jobImage.tag"
+                ;;
+              "rts-analytics-dumper")
+                PROJECT="rts-analytics-dumper"
+                TAG_PATH=".jobImage.tag"
+                ;;
+              "rts-billing-notifier")
+                PROJECT="rts-billing-notifier"
+                TAG_PATH=".jobImage.tag"
+                ;;
+              "rts-usage-uploader-informatica-sqs")
+                PROJECT="rts-usage-uploader-informatica-sqs"
+                ;;
+              *)
+                echo "Project not found: ${CI_PROJECT_NAME}"
+                exit 1
+                ;;
+            esac
+          fi
+
+          echo "Cloning helm deployment project"
+          git clone https://oauth2:${DEPLOYMENT_PAT}@${CI_SERVER_HOST}/dolby-io/infrastructure/base-images/helm.git
+          cd helm
+          echo "Setting image ${TAG} in config/${PROJECT}/${ENVIRONMENT}.yaml"
+          export _TAG_PATH=${TAG_PATH:-".image.tag"}
+          export TAG=${TAG}
+
+          echo "PROJECT: ${PROJECT}"
+          echo "TAG: ${TAG}"
+          echo "_TAG_PATH: ${_TAG_PATH}"
+          echo "ENVIRONMENT: ${ENVIRONMENT}"
+          echo "PROJECT: ${PROJECT}"
+
+          yq -i 'eval(strenv(_TAG_PATH)) = strenv(TAG)' config/${PROJECT}/${ENVIRONMENT}.yaml
+          git diff
+          git commit -am "CI: Update ${ENVIRONMENT} ${PROJECT} ${TAG}"
+          git status
+
+        env:
+          GITLAB_USER_NAME: ${{ secrets.gitlab_user_name }}
+          GITLAB_USER_EMAIL: ${{ secrets.gitlab_user_email }}
+          DEPLOYMENT_PAT: ${{ secrets.deployment_pat }}
+          CI_SERVER_HOST: 'gitlab-sfo.dolby.net'
+          ENVIRONMENT: ${{ inputs.environment }}
+          TAG: ${{ inputs.millicast_tag }}
