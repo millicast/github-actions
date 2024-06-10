@@ -4,25 +4,31 @@ on:
   workflow_call:
     inputs:
       dockerfile:
+        description: 'Define path and name of the Dockerfile.'
         required: false
         type: string
         default: './Dockerfile'
       build_args:
+        description: 'Build args, which are not containing secrets. They can be displayed in the build log.'
         required: false
         type: string
         default: ' '
       push:
+        description: 'Set dry-run if false.'
         required: false
         type: boolean
-        default: false
+        default: true
       ecr_repo_url:
+        description: 'URL to AWS ECR repository.'
         required: true
         type: string
       millicast_tag:
+        description: 'Define tag for the docker image.'
         required: true
         type: string
     secrets:
       build_args_secrets:
+        description: 'Build args with secrets variables. Secrets will be masked in the build log.'
         required: false
 
 jobs:
