@@ -18,6 +18,9 @@ on:
       ecr_repo_url:
         required: true
         type: string
+      millicast_tag:
+        required: true
+        type: string
     secrets:
       build_args_secrets:
         required: false
@@ -37,15 +40,24 @@ jobs:
             push_image='--push-retry 3'
           fi
 
-          github_short_sha=$(echo ${{ github.sha }} | cut -c1-8)
+          if [[ ${{ github.ref_type }} == 'tag' ]];then
+            context="${{ github.repositoryUrl }}#${{ github.ref }}"
+          else
+            context="${{ github.repositoryUrl }}#${{ github.ref }}#${{ github.sha }}"
+          fi
+
+          destination="${{ inputs.ecr_repo_url }}:${{ inputs.millicast_tag }}"
           build_args_all="${{ inputs.build_args}} ${{ secrets.build_args_secrets }}"
 
+          echo "Context: ${context}"
+          echo "Destination: ${destination}"
+
           /kaniko/executor --dockerfile=${{ inputs.dockerfile }} \
-          --context="${{ github.repositoryUrl }}#${{ github.ref }}#${{ github.sha }}" \
-          --destination=${{ inputs.ecr_repo_url }}:${github_short_sha} \
+          --context=${context} \
+          --destination=${destination} \
           ${push_image} \
           ${build_args_all} \
-          && if [ ${{ inputs.push }} = true ];then echo "Docker image pushed to ${{ inputs.ecr_repo_url }}:${github_short_sha} :saluting_face:" >> $GITHUB_STEP_SUMMARY;fi
+          && if [ ${{ inputs.push }} = true ];then echo "Docker image pushed to ${destination} :saluting_face:" >> $GITHUB_STEP_SUMMARY;fi
         env:
           GIT_USERNAME: ${{ github.actor }}
           GIT_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
