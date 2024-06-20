@@ -38,8 +38,6 @@ jobs:
     steps:
       - name: "Git push to helm chart repo: ${{ inputs.push }}"
         run: |
-          printenv
-          
           apk add --update --no-cache yq
 
           helm_repo_url=${CI_SERVER_HOST}/dolby-io/infrastructure/base-images/helm.git
@@ -158,6 +156,10 @@ jobs:
           git status
           ${git_push_to_helm}
 
+          printenv
+
+          echo ${GITHUB_CONTEXT}
+
         env:
           GITLAB_USER_NAME: ${{ secrets.gitlab_user_name }}
           GITLAB_USER_EMAIL: ${{ secrets.gitlab_user_email }}
@@ -165,3 +167,4 @@ jobs:
           CI_SERVER_HOST: 'gitlab-sfo.dolby.net'
           ENVIRONMENT: ${{ inputs.environment }}
           TAG: ${{ inputs.millicast_tag }}
+          GITHUB_CONTEXT: ${{ toJson(github) }}

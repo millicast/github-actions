@@ -1,0 +1,82 @@
+
+name: Update docker image url in the helm deployment repository
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+      millicast_tag:
+        required: true
+        type: string
+    secrets:
+
+jobs:
+  argo_update:
+    runs-on: [rts-dind]
+    container: 871317567657.dkr.ecr.us-west-2.amazonaws.com/ci:latest
+    env:
+      CI_ENVIRONMENT_NAME: ${{ inputs.environment }}
+    steps:
+      - name: Update version tracker
+        run: |
+          # Updating version tracker
+          TEMP="temp_${FILE}"
+          DATE=$(date)
+
+          aws s3 cp s3://$BUCKET/$FILE $FILE --only-show-errors
+
+          # In some projects, environment names contain dolbyio- to avoid collision with
+          # existing voxeet deployments
+          # Here, we standardize the names to provide readability.
+          PROJECT_NAME=$(basename ${{ github.repository }})
+          if [[ =${PROJECT_NAME} == dolbyio-* ]]
+          then
+            PROJECT_NAME=${CI_PROJECT_NAME#dolbyio-}
+          else
+            PROJECT_NAME=${CI_PROJECT_NAME}
+          fi
+
+          # Define short name of the branch or tag.
+          if [[ ${{ github.ref_type}} == 'tag' ]]
+          then
+            COMMIT_TAG=${{ github.ref_name}}
+          else
+            COMMIT_BRANCH=${{ github.ref_name}}
+          fi
+
+          # Get commit message for push
+          if [[ ${{ github.event_name }} == 'push' ]]
+          then
+            COMMIT_MESSAGE=${{ github.event.head_commit.message }}
+          fi
+
+          # Create commit short sha
+          COMMIT_SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-8)
+
+          # Create pipeline url
+          PIPELINE_URL=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          cat $FILE | jq \
+            --arg env "${{ inputs.environment }}" \
+            --arg app "${PROJECT_NAME}" \
+            --arg branch "${COMMIT_BRANCH}" \
+            --arg message "${COMMIT_MESSAGE}" \
+            --arg commit "${COMMIT_SHORT_SHA}" \
+            --arg tag "${COMMIT_TAG}" \
+            --arg pipeline "${PIPELINE_URL}" \
+            --arg date "${DATE}" \
+            '.[$env][$app].commit_message = $message |
+             .[$env][$app].branch = $branch |
+             .[$env][$app].commit = $commit |
+             .[$env][$app].tag = $tag |
+             .[$env][$app].pipeline_url = $pipeline |
+             .[$env][$app].deploy_time = $date' > $TEMP
+
+          aws s3 cp $TEMP s3://$BUCKET/$FILE --only-show-errors
+        env:
+          FILE: "versions.json"
+          BUCKET: "version.dolbyio.com"
+      - name: Notification
+        run: echo "Migration pipeline-notification in progress..."
