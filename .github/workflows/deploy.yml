@@ -24,12 +24,7 @@ on:
       deployment_pat:
         description: 'Authentication token to helm chart repository in GitLab.'
         required: true
-      gitlab_user_name:
-        description: 'GitLab user name.'
-        required: true
-      gitlab_user_email:
-        description: 'GitLab user email.'
-        required: true
+
 jobs:
   argo_update:
     runs-on: [rts-dind]
@@ -42,8 +37,9 @@ jobs:
 
           helm_repo_url=${CI_SERVER_HOST}/dolby-io/infrastructure/base-images/helm.git
 
-          git config --global user.name ${GITLAB_USER_NAME}
-          git config --global user.email ${GITLAB_USER_EMAIL}
+          # Git config
+          git config --global user.name ${GIT_USER_NAME}
+          git config --global user.email ${GIT_USER_EMAIL}
 
           if [ ${{ inputs.push }} = false ];then
             git_push_to_helm=' '
@@ -52,6 +48,16 @@ jobs:
             git_push_to_helm='git push'
           fi
 
+          # Setting environment
+          if [[ ${ENVIRONMENT} == *"rp2"* ]]; then
+            ENVIRONMENT="rp2"
+          elif [[ ${ENVIRONMENT} == *"staging"* ]];then
+            ENVIRONMENT="staging"
+          elif [[ ${ENVIRONMENT} == *"production"* ]];then
+            ENVIRONMENT="production"
+          fi
+
+          # Define project
           CI_PROJECT_NAME=$(basename ${{ github.repository }})
           if [[ ! -z ${{ inputs.override_project }} ]]
           then
@@ -157,8 +163,8 @@ jobs:
           ${git_push_to_helm}
 
         env:
-          GITLAB_USER_NAME: ${{ secrets.gitlab_user_name }}
-          GITLAB_USER_EMAIL: ${{ secrets.gitlab_user_email }}
+          GIT_USER_NAME: ${{ github.event.pusher.name }}
+          GIT_USER_EMAIL: ${{ github.event.pusher.email }}
           DEPLOYMENT_PAT: ${{ secrets.deployment_pat }}
           CI_SERVER_HOST: 'gitlab-sfo.dolby.net'
           ENVIRONMENT: ${{ inputs.environment }}
