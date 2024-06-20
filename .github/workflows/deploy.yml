@@ -38,6 +38,8 @@ jobs:
     steps:
       - name: "Git push to helm chart repo: ${{ inputs.push }}"
         run: |
+          printenv
+          
           apk add --update --no-cache yq
 
           helm_repo_url=${CI_SERVER_HOST}/dolby-io/infrastructure/base-images/helm.git
