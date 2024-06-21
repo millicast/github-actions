@@ -9,6 +9,8 @@ on:
 jobs:
   update:
     runs-on: ubuntu-latest
+    permissions:
+        contents: write
     steps:
     - name: Install ffmpeg, AV codecs ubuntu dependencies
       run: sudo apt-get update -y && sudo apt-get upgrade -y && sudo apt-get install -y libavcodec-dev libswresample-dev libgsm1-dev libopus-dev libspeex-dev ffmpeg libx264-dev libvpx-dev libavformat-dev libavfilter-dev libswscale-dev
@@ -35,6 +37,7 @@ jobs:
         MEDOOZE_PACKAGES_AUTH_TOKEN: ${{ secrets.token }}
     - name: Commit package and package-lock.json
       run: |
+        git diff package.json
         git config --global user.name 'Github Action'
         git config --global user.email 'github-action@users.noreply.github.com'
         git add package.json package-lock.json
