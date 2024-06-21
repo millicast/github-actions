@@ -9,7 +9,7 @@ on:
       token:
         required: true
 jobs:
-  build:
+  publish:
     runs-on: ubuntu-22.04
     permissions:
       contents: read
