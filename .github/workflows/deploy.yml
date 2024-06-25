@@ -20,6 +20,11 @@ on:
         required: false
         type: boolean
         default: true
+      is_cronjob:
+        description: 'Specify if service to deploy is a cronjob - enables deployment specificities.'
+        required: false
+        type: boolean
+        default: false
     secrets:
       deployment_pat:
         description: 'Authentication token to helm chart repository in GitLab.'
@@ -47,7 +52,7 @@ jobs:
           else
             git_push_to_helm='git push'
           fi
-
+          
           # Setting environment
           if [[ ${ENVIRONMENT} == *"rp2"* ]]; then
             ENVIRONMENT="rp2"
@@ -107,31 +112,24 @@ jobs:
                 ;;
               "rts-analytics-extractor")
                 PROJECT="rts-analytics-extractor"
-                TAG_PATH=".jobImage.tag"
                 ;;
               "rts-analytics-processor")
                 PROJECT="rts-analytics-processor"
-                TAG_PATH=".jobImage.tag"
                 ;;
               "rts-bandwidth-accumulator")
                 PROJECT="rts-bandwidth-accumulator"
-                TAG_PATH=".jobImage.tag"
                 ;;
               "rts-daily-reports")
                 PROJECT="rts-daily-reports"
-                TAG_PATH=".jobImage.tag"
                 ;;
               "rts-storage-accumulator")
                 PROJECT="rts-storage-accumulator"
-                TAG_PATH=".jobImage.tag"
                 ;;
               "rts-analytics-dumper")
                 PROJECT="rts-analytics-dumper"
-                TAG_PATH=".jobImage.tag"
                 ;;
               "rts-billing-notifier")
                 PROJECT="rts-billing-notifier"
-                TAG_PATH=".jobImage.tag"
                 ;;
               "rts-usage-uploader-informatica-sqs")
                 PROJECT="rts-usage-uploader-informatica-sqs"
@@ -147,16 +145,22 @@ jobs:
           git clone https://oauth2:${DEPLOYMENT_PAT}@${helm_repo_url}
           cd helm
           echo "Setting image ${TAG} in config/${PROJECT}/${ENVIRONMENT}.yaml"
-          export _TAG_PATH=${TAG_PATH:-".image.tag"}
+          
+          if [ ${{ inputs.is_cronjob }} = false ];then
+            export TAG_PATH=".image.tag"
+          else
+            export TAG_PATH=".jobImage.tag"
+          fi
+          
           export TAG=${TAG}
 
           echo "PROJECT: ${PROJECT}"
           echo "TAG: ${TAG}"
-          echo "_TAG_PATH: ${_TAG_PATH}"
+          echo "TAG_PATH: ${TAG_PATH}"
           echo "ENVIRONMENT: ${ENVIRONMENT}"
           echo "PROJECT: ${PROJECT}"
 
-          yq -i 'eval(strenv(_TAG_PATH)) = strenv(TAG)' config/${PROJECT}/${ENVIRONMENT}.yaml
+          yq -i 'eval(strenv(TAG_PATH)) = strenv(TAG)' config/${PROJECT}/${ENVIRONMENT}.yaml
           git diff
           git commit -am "CI: Update ${ENVIRONMENT} ${PROJECT} ${TAG}"
           git status
