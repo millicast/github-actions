@@ -11,7 +11,7 @@ on:
         description: 'Define deployment environment.'
         required: true
         type: string
-      millicast_tag:
+      tag:
         description: 'Tag of the docker image for helm deployment.'
         required: true
         type: string
@@ -52,7 +52,7 @@ jobs:
           else
             git_push_to_helm='git push'
           fi
-          
+
           # Setting environment
           if [[ ${ENVIRONMENT} == *"rp2"* ]]; then
             ENVIRONMENT="rp2"
@@ -145,13 +145,13 @@ jobs:
           git clone https://oauth2:${DEPLOYMENT_PAT}@${helm_repo_url}
           cd helm
           echo "Setting image ${TAG} in config/${PROJECT}/${ENVIRONMENT}.yaml"
-          
+
           if [ ${{ inputs.is_cronjob }} = false ];then
             export TAG_PATH=".image.tag"
           else
             export TAG_PATH=".jobImage.tag"
           fi
-          
+
           export TAG=${TAG}
 
           echo "PROJECT: ${PROJECT}"
@@ -166,15 +166,10 @@ jobs:
           git status
           ${git_push_to_helm}
 
-          printenv
-
-          echo ${GITHUB_CONTEXT}
-
         env:
           GIT_USER_NAME: ${{ github.event.pusher.name }}
           GIT_USER_EMAIL: ${{ github.event.pusher.email }}
           DEPLOYMENT_PAT: ${{ secrets.deployment_pat }}
           CI_SERVER_HOST: 'gitlab-sfo.dolby.net'
           ENVIRONMENT: ${{ inputs.environment }}
-          TAG: ${{ inputs.millicast_tag }}
-          GITHUB_CONTEXT: ${{ toJson(github) }}
+          TAG: ${{ inputs.tag }}

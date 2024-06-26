@@ -1,0 +1,82 @@
+name: "Build and deploy"
+
+on:
+  workflow_call:
+    inputs:
+      ecr_repo_url:
+        type: string
+        required: true
+      dockerfile:
+        type: string
+        required: false
+        default: './Dockerfile'
+      push_docker_image:
+        required: false
+        type: boolean
+        default: true
+      deploy:
+        required: false
+        type: boolean
+        default: true
+      build_args:
+        required: false
+        type: string
+      override_project:
+        required: false
+        type: string
+    secrets:
+      build_args_secrets:
+        description: 'Kaniko build args with secrets variables.'
+        required: false
+      deployment_pat:
+        description: 'Project Access Token to helm chart gitlab repository.'
+        required: true
+
+jobs:
+  set_env:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.set_env.outputs.tag }}
+      environment: ${{ steps.set_env.outputs.environment }}
+    steps:
+      - name: Set environment
+        id: set_env
+        run: |
+          if [[ ${{ github.ref_type }} == 'tag' ]];then
+            tag=${{ github.ref_name }}
+            environment='["rp2","staging","production"]'
+          else
+            tag=$(echo ${{ github.sha }} | cut -c1-8)
+            environment='["rp2", "staging"]'
+          fi
+          echo "tag=${tag}" >> ${GITHUB_OUTPUT}
+          echo "environment=$(jq -cr <<< "$environment")" >> $GITHUB_OUTPUT
+  build:
+    needs: [set_env]
+
+    uses: millicast/github-actions/.github/workflows/kaniko.yml@v0.0.7
+    with:
+      ecr_repo_url: ${{ inputs.ecr_repo_url }}
+      tag: ${{ needs.set_env.outputs.tag }}
+      dockerfile: ${{ inputs.dockerfile}}
+      push: ${{ inputs.push_docker_image }}
+      build_args: ${{ inputs.build_args }}
+    secrets:
+      build_args_secrets: ${{ secrets.build_args_secrets }}
+
+  deploy:
+    needs: [set_env, build]
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        environment: ${{ fromJson(needs.set_env.outputs.environment) }}
+
+    uses: millicast/github-actions/.github/workflows/deploy.yml@v0.0.7
+    with:
+      environment: ${{ matrix.environment }}
+      tag: ${{ needs.set_env.outputs.tag }}
+      push: ${{ inputs.deploy }}
+      override_project: ${{ inputs.override_project }}
+    secrets:
+      deployment_pat: ${{ secrets.deployment_pat }}
