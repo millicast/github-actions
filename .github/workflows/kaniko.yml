@@ -22,7 +22,7 @@ on:
         description: 'URL to AWS ECR repository.'
         required: true
         type: string
-      millicast_tag:
+      tag:
         description: 'Define tag for the docker image.'
         required: true
         type: string
@@ -52,7 +52,7 @@ jobs:
             context="${{ github.repositoryUrl }}#${{ github.ref }}#${{ github.sha }}"
           fi
 
-          destination="${{ inputs.ecr_repo_url }}:${{ inputs.millicast_tag }}"
+          destination="${{ inputs.ecr_repo_url }}:${{ inputs.tag }}"
           build_args_all="${{ inputs.build_args}} ${{ secrets.build_args_secrets }}"
 
           echo "Context: ${context}"
