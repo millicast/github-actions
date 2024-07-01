@@ -8,11 +8,6 @@ on:
         required: false
         type: string
         default: './Dockerfile'
-      build_args:
-        description: 'Build args, which are not containing secrets. They can be displayed in the build log.'
-        required: false
-        type: string
-        default: ' '
       push:
         description: 'Set dry-run if false.'
         required: false
@@ -26,10 +21,15 @@ on:
         description: 'Define tag for the docker image.'
         required: true
         type: string
-    secrets:
-      build_args_secrets:
-        description: 'Build args with secrets variables. Secrets will be masked in the build log.'
+      build_target:
+        description: 'Define build target.'
         required: false
+        type: string
+      dotnet_project:
+        description: 'Set dotnet_project to create common build args.'
+        required: false
+        type: boolean
+        default: true
 
 jobs:
   kaniko:
@@ -52,17 +52,29 @@ jobs:
             context="${{ github.repositoryUrl }}#${{ github.ref }}#${{ github.sha }}"
           fi
 
+          # This part is creating build_args, which are common for all dotnet projects.
+          if [[ ${{ inputs.dotnet_project }} ]];then
+            if [[ ${{ github.ref_type }} == 'tag' ]];then
+              ci_commit_tag=${{ inputs.tag }}
+              ci_commit_branch=""
+            else
+              ci_commit_tag=""
+              ci_commit_branch=${{ inputs.tag }}
+            fi
+            build_args="--build-arg BUILD_TARGET=${{ inputs.build_target }} --build-arg CI_COMMIT_SHA=${{ github.sha }} --build-arg CI_COMMIT_BRANCH=${ci_commit_branch} --build-arg CI_COMMIT_TAG=${ci_commit_tag} --build-arg NUGET_URL=${{ secrets.NUGET_URL }} --build-arg NUGET_USERNAME=${{ secrets.NUGET_USERNAME }} --build-arg NUGET_PASSWORD=${{ secrets.NUGET_PASSWORD }}"
+          fi
+
           destination="${{ inputs.ecr_repo_url }}:${{ inputs.tag }}"
-          build_args_all="${{ inputs.build_args}} ${{ secrets.build_args_secrets }}"
 
           echo "Context: ${context}"
           echo "Destination: ${destination}"
+          echo "build_args: ${build_args}"
 
           /kaniko/executor --dockerfile=${{ inputs.dockerfile }} \
           --context=${context} \
           --destination=${destination} \
           ${push_image} \
-          ${build_args_all} \
+          ${build_args} \
           && if [ ${{ inputs.push }} = true ];then echo "Docker image pushed to ${destination} :saluting_face:" >> $GITHUB_STEP_SUMMARY;fi
         env:
           GIT_USERNAME: ${{ github.actor }}

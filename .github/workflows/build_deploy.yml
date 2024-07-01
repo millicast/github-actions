@@ -4,33 +4,32 @@ on:
   workflow_call:
     inputs:
       ecr_repo_url:
+        description: 'URL to AWS ECR repository.'
         type: string
         required: true
+      build_target:
+        description: 'Define build target.'
+        required: true
+        type: string
       dockerfile:
+        description: 'Define path and name of the Dockerfile.'
         type: string
         required: false
         default: './Dockerfile'
       push_docker_image:
+        description: 'Set dry-run if false.'
         required: false
         type: boolean
         default: true
       deploy:
+        description: 'Set dry-run if false.'
         required: false
         type: boolean
         default: true
-      build_args:
-        required: false
-        type: string
       override_project:
+        description: 'Define name of the project. If not set, then project will be taken from the step (Update argo) list.'
         required: false
         type: string
-    secrets:
-      build_args_secrets:
-        description: 'Kaniko build args with secrets variables.'
-        required: false
-      deployment_pat:
-        description: 'Project Access Token to helm chart gitlab repository.'
-        required: true
 
 jobs:
   set_env:
@@ -51,18 +50,19 @@ jobs:
           fi
           echo "tag=${tag}" >> ${GITHUB_OUTPUT}
           echo "environment=$(jq -cr <<< "$environment")" >> $GITHUB_OUTPUT
+
   build:
     needs: [set_env]
 
-    uses: millicast/github-actions/.github/workflows/kaniko.yml@v0.0.7
+    uses: millicast/github-actions/.github/workflows/kaniko.yml@v0.0.8
     with:
       ecr_repo_url: ${{ inputs.ecr_repo_url }}
       tag: ${{ needs.set_env.outputs.tag }}
       dockerfile: ${{ inputs.dockerfile}}
       push: ${{ inputs.push_docker_image }}
-      build_args: ${{ inputs.build_args }}
-    secrets:
-      build_args_secrets: ${{ secrets.build_args_secrets }}
+      dotnet_project: true
+      build_target: ${{ inputs.build_target }}
+    secrets: inherit
 
   deploy:
     needs: [set_env, build]
@@ -72,11 +72,10 @@ jobs:
       matrix:
         environment: ${{ fromJson(needs.set_env.outputs.environment) }}
 
-    uses: millicast/github-actions/.github/workflows/deploy.yml@v0.0.7
+    uses: millicast/github-actions/.github/workflows/deploy.yml@v0.0.8
     with:
       environment: ${{ matrix.environment }}
       tag: ${{ needs.set_env.outputs.tag }}
       push: ${{ inputs.deploy }}
       override_project: ${{ inputs.override_project }}
-    secrets:
-      deployment_pat: ${{ secrets.deployment_pat }}
+    secrets: inherit
