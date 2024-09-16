@@ -29,6 +29,6 @@ jobs:
         git add package-lock.json
         git diff  # check there are no more changes
         git diff --cached --quiet || {
-          git commit -m "Update package-lock - `date`"
+          git commit -m "deps: update package-lock - `date`"
           git push
         }
