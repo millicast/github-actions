@@ -16,7 +16,7 @@ jobs:
       run: sudo apt-get update -y && sudo apt-get upgrade -y && sudo apt-get install -y libavcodec-dev libswresample-dev libgsm1-dev libopus-dev libspeex-dev ffmpeg libx264-dev libvpx-dev libavformat-dev libavfilter-dev libswscale-dev
     - name: Install gpac dependencies
       run: |
-        sudo apt-get install -y curl unzip build-essential pkg-config python3 zlib1g-dev libfreetype6-dev libjpeg62-dev libpng-dev libmad0-dev libfaad-dev libogg-dev libvorbis-dev libtheora-dev liba52-0.7.4-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libavdevice-dev libnghttp2-dev libopenjp2-7-dev libcaca-dev libxv-dev x11proto-video-dev libgl1-mesa-dev libglu1-mesa-dev x11proto-gl-dev libxvidcore-dev libssl-dev libjack-jackd2-dev libasound2-dev libpulse-dev libsdl2-dev dvb-apps mesa-utils libx264-dev libvpx-dev
+        sudo apt-get install -y curl unzip build-essential pkg-config python3 zlib1g-dev libfreetype6-dev libjpeg62-dev libpng-dev libmad0-dev libfaad-dev libogg-dev libvorbis-dev libtheora-dev liba52-0.7.4-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libavdevice-dev libnghttp2-dev libopenjp2-7-dev libcaca-dev libxv-dev x11proto-video-dev libgl1-mesa-dev libglu1-mesa-dev x11proto-gl-dev libxvidcore-dev libssl-dev libjack-jackd2-dev libasound2-dev libpulse-dev libsdl2-dev dvb-apps mesa-utils libx264-dev libvpx-dev libsystemd-dev
         curl -fsSL https://download.tsi.telecom-paristech.fr/gpac/release/2.4/gpac_2.4-rev0-g5d70253a-master_amd64.deb -o gpac.deb
         sudo dpkg -i gpac.deb
         curl -fsSL https://download.tsi.telecom-paristech.fr/gpac/release/2.4/libgpac-dev_2.4-rev0-g5d70253a-master_amd64.deb -o libgpac-dev.deb
