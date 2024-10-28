@@ -27,9 +27,9 @@ jobs:
           sudo dpkg -i gpac.deb
           curl -fsSL https://download.tsi.telecom-paristech.fr/gpac/release/2.4/libgpac-dev_2.4-rev0-g5d70253a-master_amd64.deb -o libgpac-dev.deb
           sudo dpkg -i libgpac-dev.deb
-          sudo wget https://ftp.debian.org/debian/pool/main/a/aom/libaom3_3.9.1-1_amd64.deb
-          sudo wget https://ftp.debian.org/debian/pool/main/a/aom/libaom-dev_3.9.1-1_amd64.deb
-          sudo dpkg -i libaom3_3.9.1-1_amd64.deb libaom-dev_3.9.1-1_amd64.deb
+          sudo wget https://ftp.debian.org/debian/pool/main/a/aom/libaom3_3.10.0-1_amd64.deb
+          sudo wget https://ftp.debian.org/debian/pool/main/a/aom/libaom-dev_3.10.0-1_amd64.deb
+          sudo dpkg -i libaom3_3.10.0-1_amd64.deb libaom-dev_3.10.0-1_amd64.deb
       - uses: actions/setup-node@v4
         with:
           node-version: '21.x'
