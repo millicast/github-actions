@@ -21,18 +21,12 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-mark hold firefox
+          sudo add-apt-repository -y "ppa:savoury1/ffmpeg4"
           sudo apt-get update
-          sudo apt-get install -y curl unzip build-essential pkg-config python3 zlib1g-dev libfreetype6-dev libjpeg62-dev libpng-dev libmad0-dev libfaad-dev libogg-dev libvorbis-dev libtheora-dev liba52-0.7.4-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libavdevice-dev libnghttp2-dev libopenjp2-7-dev libcaca-dev libxv-dev x11proto-video-dev libgl1-mesa-dev libglu1-mesa-dev x11proto-gl-dev libxvidcore-dev libssl-dev libjack-jackd2-dev libasound2-dev libpulse-dev libsdl2-dev dvb-apps mesa-utils libx264-dev libvpx-dev libswresample-dev libgsm1-dev libopus-dev libspeex-dev libsystemd-dev
-          curl -fsSL https://download.tsi.telecom-paristech.fr/gpac/release/2.4/gpac_2.4-rev0-g5d70253a-master_amd64.deb -o gpac.deb
-          sudo dpkg -i gpac.deb
-          curl -fsSL https://download.tsi.telecom-paristech.fr/gpac/release/2.4/libgpac-dev_2.4-rev0-g5d70253a-master_amd64.deb -o libgpac-dev.deb
-          sudo dpkg -i libgpac-dev.deb
-          sudo wget https://ftp.debian.org/debian/pool/main/a/aom/libaom3_3.10.0-1_amd64.deb
-          sudo wget https://ftp.debian.org/debian/pool/main/a/aom/libaom-dev_3.10.0-1_amd64.deb
-          sudo dpkg -i libaom3_3.10.0-1_amd64.deb libaom-dev_3.10.0-1_amd64.deb
+          sudo apt-get install -y curl unzip build-essential pkg-config python3 zlib1g-dev libfreetype6-dev libjpeg62-dev libpng-dev libmad0-dev libfaad-dev libogg-dev libvorbis-dev libtheora-dev liba52-0.7.4-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libavdevice-dev libnghttp2-dev libopenjp2-7-dev libcaca-dev libxv-dev x11proto-video-dev libgl1-mesa-dev libglu1-mesa-dev x11proto-gl-dev libxvidcore-dev libssl-dev libjack-jackd2-dev libasound2-dev libpulse-dev libsdl2-dev dvb-apps mesa-utils libx264-dev libvpx-dev libswresample-dev libgsm1-dev libopus-dev libspeex-dev libsystemd-dev libaom-dev
       - uses: actions/setup-node@v4
         with:
-          node-version: '21.x'
+          node-version: '22.x'
           registry-url: ${{ inputs.registry-url }}
       - run: npm install
         env:
