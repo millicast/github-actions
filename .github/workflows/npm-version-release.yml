@@ -4,18 +4,26 @@ on:
   workflow_call:
     secrets:
       WRITE_APP_CLIENT_ID:
-        required: true
+        required: false
       WRITE_APP_PRIVATE_KEY:
-        required: true
+        required: false
     inputs:
       bump_version:
         required: true
         type: string
-        description: choice of either major, minor, patch
+        description: choice of either major, minor, patch, or prerelease
+      prerelease_id:
+        required: false
+        type: string
+        default: 'alpha'
       app_path:
         required: false
         type: string
         description: path to app in repo
+      use_workflow_token:
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   next-version:
@@ -42,18 +50,23 @@ jobs:
         shell: 'ash -e -o pipefail {0}'
         run: |
           case "${bumpVersion}" in
-            'major'|'minor'|'patch') ;;
+            'major'|'minor'|'patch'|'prerelease') ;;
             *)
               echo "::error ::Invalid bump version: ${bumpVersion}"
               exit 1 ;;
           esac
+
+          set --
+          if [ "${bumpVersion}" = "prerelease" ]; then
+            set -- "$@" --preid "${prereleaseId}"
+          fi
 
           if [ -n "${appPath}" ]; then
             cd "${appPath}"
           fi
 
           oldVer="$(npm pkg get version | tr -d '"')"
-          semVer="$(npm version "${bumpVersion}" --no-git-tag-version --tag-version-prefix='')"
+          semVer="$(npm version "${bumpVersion}" --no-git-tag-version --tag-version-prefix='' "$@")"
           echo "${oldVer} -> ${semVer} with bumpVersion: ${bumpVersion}"
 
           echo "oldVer=${oldVer}" >> "${GITHUB_OUTPUT}"
@@ -61,6 +74,7 @@ jobs:
 
       - id: app-token
         uses: actions/create-github-app-token@v3
+        if: inputs.use_workflow_token != true
         with:
           client-id: ${{ secrets.WRITE_APP_CLIENT_ID }}
           private-key: ${{ secrets.WRITE_APP_PRIVATE_KEY }}
@@ -76,7 +90,7 @@ jobs:
           branch: ${{ github.head_ref || github.ref_name }}
           semVer: ${{ steps.bump-version.outputs.semVer }}
         with:
-          github-token: ${{ steps.app-token.outputs.token }}
+          github-token: ${{ inputs.use_workflow_token != true && steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
           result-encoding: string
           script: |
             const owner = context.repo.owner;
