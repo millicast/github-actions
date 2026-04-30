@@ -20,8 +20,8 @@ on:
 jobs:
   next-version:
     name: "next-version: bump ${{ inputs.bump_version }}"
-    runs-on: [rts-dind]
-    container: "871317567657.dkr.ecr.us-west-2.amazonaws.com/dockerhub/library/node:24-alpine"
+    runs-on: ubuntu-latest
+    container: node:24-alpine
     permissions:
       contents: write
     concurrency:
