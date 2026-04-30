@@ -25,9 +25,12 @@ on:
         type: boolean
         default: false
     outputs:
-      oldVer: ${{ jobs.next-version.outputs.oldVer }}
-      semVer: ${{ jobs.next-version.outputs.semVer }}
-      newHeadSha: ${{ jobs.next-version.outputs.newHeadSha }}
+      oldVer:
+        value: ${{ jobs.next-version.outputs.oldVer }}
+      semVer:
+        value: ${{ jobs.next-version.outputs.semVer }}
+      newHeadSha:
+        value: ${{ jobs.next-version.outputs.newHeadSha }}
 
 jobs:
   next-version:
