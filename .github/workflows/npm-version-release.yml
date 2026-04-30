@@ -47,6 +47,7 @@ jobs:
         env:
           appPath: ${{ inputs.app_path }}
           bumpVersion: ${{ inputs.bump_version }}
+          prereleaseId: ${{ inputs.prerelease_id }}
         shell: 'ash -e -o pipefail {0}'
         run: |
           case "${bumpVersion}" in
@@ -57,7 +58,7 @@ jobs:
           esac
 
           set --
-          if [ "${bumpVersion}" = "prerelease" ]; then
+          if [ "${bumpVersion}" = 'prerelease' ]; then
             set -- "$@" --preid "${prereleaseId}"
           fi
 
