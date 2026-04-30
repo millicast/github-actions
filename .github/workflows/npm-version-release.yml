@@ -1,0 +1,239 @@
+name: npm-version-release
+
+on:
+  workflow_call:
+    secrets:
+      WRITE_APP_CLIENT_ID:
+        required: false
+      WRITE_APP_PRIVATE_KEY:
+        required: false
+    inputs:
+      bump_version:
+        required: true
+        type: string
+        description: choice of either major, minor, patch, or prerelease
+      prerelease_id:
+        required: false
+        type: string
+        default: 'alpha'
+      app_path:
+        required: false
+        type: string
+        description: path to app in repo
+      use_workflow_token:
+        required: false
+        type: boolean
+        default: false
+    outputs:
+      oldVer:
+        value: ${{ jobs.next-version.outputs.oldVer }}
+      semVer:
+        value: ${{ jobs.next-version.outputs.semVer }}
+      newHeadSha:
+        value: ${{ jobs.next-version.outputs.newHeadSha }}
+
+jobs:
+  next-version:
+    name: "next-version: bump ${{ inputs.bump_version }}"
+    runs-on: ubuntu-latest
+    container: node:24-alpine
+    permissions:
+      contents: write
+    concurrency:
+      group: "npm-version-release-${{ github.repository }}"
+      cancel-in-progress: false
+    outputs:
+      oldVer: ${{ steps.bump-version.outputs.oldVer }}
+      semVer: ${{ steps.bump-version.outputs.semVer }}
+      newHeadSha: ${{ steps.commit-tag-release.outputs.newHeadSha }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - id: bump-version
+        name: "bump version: ${{ inputs.bump_version }}"
+        env:
+          appPath: ${{ inputs.app_path }}
+          bumpVersion: ${{ inputs.bump_version }}
+          prereleaseId: ${{ inputs.prerelease_id }}
+        shell: 'ash -e -o pipefail {0}'
+        run: |
+          case "${bumpVersion}" in
+            'major'|'minor'|'patch'|'prerelease') ;;
+            *)
+              echo "::error ::Invalid bump version: ${bumpVersion}"
+              exit 1 ;;
+          esac
+
+          set --
+          if [ "${bumpVersion}" = 'prerelease' ]; then
+            set -- "$@" --preid "${prereleaseId}"
+          fi
+
+          if [ -n "${appPath}" ]; then
+            cd "${appPath}"
+          fi
+
+          oldVer="$(npm pkg get version | tr -d '"')"
+          semVer="$(npm version "${bumpVersion}" --no-git-tag-version --tag-version-prefix='' "$@")"
+          echo "${oldVer} -> ${semVer} with bumpVersion: ${bumpVersion}"
+
+          echo "oldVer=${oldVer}" >> "${GITHUB_OUTPUT}"
+          echo "semVer=${semVer}" >> "${GITHUB_OUTPUT}"
+
+      - id: app-token
+        uses: actions/create-github-app-token@v3
+        if: inputs.use_workflow_token != true
+        with:
+          client-id: ${{ secrets.WRITE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.WRITE_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+
+      - id: commit-tag-release
+        name: "github commit, tag, and release: ${{ steps.bump-version.outputs.semVer }}"
+        uses: actions/github-script@v8
+        env:
+          appPath: ${{ inputs.app_path }}
+          branch: ${{ github.head_ref || github.ref_name }}
+          semVer: ${{ steps.bump-version.outputs.semVer }}
+        with:
+          github-token: ${{ inputs.use_workflow_token != true && steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
+          result-encoding: string
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const branch = process.env.branch;
+            const expectedSha = context.sha;
+
+            const appPath = (process.env.appPath || '').replace(/^\.?\/+/, '').replace(/\/$/, '');
+            const semVer = process.env.semVer;
+
+            const filePath = (name) => appPath ? `${appPath}/${name}` : name;
+
+            if (!semVer) {
+              core.setFailed('Empty semVer received in step.');
+              return;
+            }
+
+            const fs = require('fs');
+            const path = require('path');
+
+            const packageFiles = [];
+            appendFileContents(filePath('package.json'), false, packageFiles);
+            appendFileContents(filePath('package-lock.json'), true, packageFiles);
+
+            // validate tag does not already exist in repo
+            const tagName = `v${semVer}`;
+            try {
+              const { data: tagRef } = await github.rest.git.getRef({
+                owner,
+                repo,
+                ref: `tags/${tagName}`
+              });
+              console.log('tag ref', tagRef);
+
+              // if we get here that means we found a tag, so we should error out
+              // if package.json version drifted from git tags, will require manual fixing
+              core.setFailed(`Tag ${tagName} already exists in repo`);
+              return;
+
+            } catch (err) {
+              if (err.status !== 404) {
+                // error testing if tag exists
+                throw err;
+              }
+              // else if status is 404 then tag does not exist, we can continue
+            }
+
+            // 1) Read current branch ref
+            const { data: branchRef } = await github.rest.git.getRef({
+              owner,
+              repo,
+              ref: `heads/${branch}`,
+            });
+            console.log('current branch ref', branchRef);
+            const currentCommitSha = branchRef.object.sha;
+
+            if (expectedSha !== currentCommitSha) {
+              // someone performed a commit between steps
+              core.setFailed('HEAD sha does not match expected sha');
+              return;
+            }
+
+            // 2) Read current commit so we can get its tree
+            const { data: branchCommit } = await github.rest.git.getCommit({
+              owner,
+              repo,
+              commit_sha: currentCommitSha,
+            });
+            console.log('current branch commit', branchCommit);
+            const baseTreeSha = branchCommit.tree.sha;
+
+            // 3) Create a new tree with just the two updated files replaced
+            const { data: newTree } = await github.rest.git.createTree({
+              owner,
+              repo,
+              base_tree: baseTreeSha,
+              tree: packageFiles.map(f => ({
+                ...f,
+                mode: '100644',
+                type: 'blob'
+              }))
+            });
+            const newTreeTree = newTree.tree;
+            newTree.tree = `${newTreeTree.length} files`;
+            console.log('created new tree', newTree);
+
+            const newTreeSha = newTree.sha;
+
+            // 4) Create a new commit with the old commit as parent
+            const { data: newCommit } = await github.rest.git.createCommit({
+              owner,
+              repo,
+              message: `chore: bump version to ${semVer}`,
+              tree: newTreeSha,
+              parents: [currentCommitSha],
+            });
+            console.log('created new commit', newCommit);
+
+            const newCommitSha = newCommit.sha;
+
+            // 5) Fast-forward branch ref only; fail if branch moved
+            const { data: newRef } = await github.rest.git.updateRef({
+              owner,
+              repo,
+              ref: `heads/${branch}`,
+              sha: newCommitSha,
+              force: false,
+            });
+            console.log('fast-forward ${branch} ref', newRef);
+
+            // 6) Create a tag and release
+            const { data: release } = await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: tagName,
+              target_commitish: newCommitSha,
+              name: tagName, // release name
+              body: '', // will be prepended to generated release notes
+              generate_release_notes: true
+            });
+            console.log('created github release:', release);
+
+            core.setOutput('newHeadSha', newCommitSha);
+
+            function appendFileContents(filePath, isOptional, fileArr) {
+              if (!fs.existsSync(filePath)) {
+                if (isOptional === true) {
+                  return;
+                }
+                throw new Error(`${filePath} not found in workspace`);
+              }
+  
+              const fileContents = fs.readFileSync(filePath, 'utf8');
+              fileArr.push({
+                path: filePath,
+                content: fileContents, 
+              });
+            }
