@@ -24,6 +24,10 @@ on:
         required: false
         type: boolean
         default: false
+      skip_tag:
+        required: false
+        type: boolean
+        description: Skip creation of tag/release
     outputs:
       oldVer:
         value: ${{ jobs.next-version.outputs.oldVer }}
@@ -97,6 +101,7 @@ jobs:
           appPath: ${{ inputs.app_path }}
           branch: ${{ github.head_ref || github.ref_name }}
           semVer: ${{ steps.bump-version.outputs.semVer }}
+          skipTag: ${{ inputs.skip_tag }}
         with:
           github-token: ${{ inputs.use_workflow_token != true && steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
           result-encoding: string
@@ -108,6 +113,7 @@ jobs:
 
             const appPath = (process.env.appPath || '').replace(/^\.?\/+/, '').replace(/\/$/, '');
             const semVer = process.env.semVer;
+            const skipTag = process.env.skipTag === 'true';
 
             const filePath = (name) => appPath ? `${appPath}/${name}` : name;
 
@@ -209,6 +215,12 @@ jobs:
             });
             console.log('fast-forward ${branch} ref', newRef);
 
+            core.setOutput('newHeadSha', newCommitSha);
+
+            if (skipTag) {
+              return;
+            }
+
             // 6) Create a tag and release
             const { data: release } = await github.rest.repos.createRelease({
               owner: context.repo.owner,
@@ -220,8 +232,6 @@ jobs:
               generate_release_notes: true
             });
             console.log('created github release:', release);
-
-            core.setOutput('newHeadSha', newCommitSha);
 
             function appendFileContents(filePath, isOptional, fileArr) {
               if (!fs.existsSync(filePath)) {
