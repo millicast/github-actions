@@ -51,7 +51,7 @@ jobs:
       semVer: ${{ steps.bump-version.outputs.semVer }}
       newHeadSha: ${{ steps.commit-tag-release.outputs.newHeadSha }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - id: bump-version
         name: "bump version: ${{ inputs.bump_version }}"
