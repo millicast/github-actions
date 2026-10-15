@@ -96,7 +96,7 @@ jobs:
 
       - id: commit-tag-release
         name: "github commit, tag, and release: ${{ steps.bump-version.outputs.semVer }}"
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           appPath: ${{ inputs.app_path }}
           branch: ${{ github.head_ref || github.ref_name }}
